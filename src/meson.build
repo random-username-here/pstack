@@ -6,4 +6,4 @@ sources = files(
   'pstack/ifc.cpp'
 )
 
-main_file = files('sample.c')[0]
+main_file = files('sample.cpp')[0]

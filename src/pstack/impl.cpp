@@ -7,6 +7,7 @@
 #include <stdalign.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 // ----[ Functions called ] ------------------------------//
 
@@ -32,12 +33,18 @@ const ipc_handler pstack_ipc_handlers[] = {
 
 static const char hello_world[] = "Hello world!";
 
-static void ipc_handle_unset (ipc_shared_data* ipc) {
+static void ipc_handle_unset (ipc_shared_data* ipc)
+{
+  assert(ipc);
+
   log$("Got IPC_UNSET_COMMAND (command variable was reset), panicking!!!");
   ipc->res_error = PSTACK_INTERNAL_ERROR;
 }
 
-static void ipc_handle_hello (ipc_shared_data* ipc) {
+static void ipc_handle_hello (ipc_shared_data* ipc)
+{
+  assert(ipc);
+  
   log$("Got IPC_HELLO, returning `hello` message");
   ipc_store_buffer(ipc, (void*) hello_world, sizeof(hello_world));
 }
@@ -73,15 +80,20 @@ static size_t num_stacks = 0;
 //----[ Implementation of the common functions ]----------//
 // (there are no uncommon ones)
 
-static void ipc_handle_create (ipc_shared_data* ipc) {
+static void ipc_handle_create (ipc_shared_data* ipc)
+{
+  assert(ipc);
+
   log$("Got IPC_CREATE (elem_size=%zu), creating a new stack", ipc->elem_size);
 
   if (num_stacks > 0 && stacks == NULL) {
+    log$(" . Number of stacks is nonzero, but array of them points to NULL. Panic!");
     ipc->res_error = PSTACK_INTERNAL_ERROR;
     return;
   }
 
   if (ipc->elem_size == 0) {
+    log$(" . Caught an attempt to create an array with zero size elements");
     ipc->res_error = PSTACK_WRONG_ELEMENT_SIZE;
     return;
   }
@@ -104,6 +116,8 @@ static void ipc_handle_create (ipc_shared_data* ipc) {
     // We failed to allocate miserably
     // Now report that to the user
     if (!stacks_new) {
+      log$(" . Failed to get more memory for the stack");
+      // TODO: ask for a smaller chunk?
       ipc->res_error = PSTACK_OUT_OF_MEMORY;
       return;
     }
@@ -113,6 +127,8 @@ static void ipc_handle_create (ipc_shared_data* ipc) {
     stk = stacks + num_stacks;
     num_stacks = new_num_stacks;
   }
+
+  assert(stk);
 
 
   // TODO: make this unpredictable

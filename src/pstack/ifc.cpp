@@ -15,7 +15,8 @@ pstack_err_t pstack_new(pstack_t* stack, size_t elem_size)
 
   ipc_request(shared_process_data);
 
-  *stack = shared_process_data->handle;
+  if (shared_process_data->res_error == PSTACK_OK)
+    *stack = shared_process_data->handle;
   return shared_process_data->res_error;
 }
 
@@ -96,12 +97,10 @@ pstack_err_t pstack_size(pstack_t* stack, size_t* out)
 
   ipc_request(shared_process_data);
 
-  if (shared_process_data->res_error != PSTACK_OK)
-    return shared_process_data->res_error;
-
-  *out = shared_process_data->elem_size;
+  if (shared_process_data->res_error == PSTACK_OK)
+    *out = shared_process_data->elem_size;
   
-  return PSTACK_OK;
+  return shared_process_data->res_error;
 }
 
 
