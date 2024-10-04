@@ -74,7 +74,7 @@ typedef struct {
 
 // Array of ALL the stacks in the program
 // (so this thing is global)
-static stack_t* stacks = NULL;
+static stack_t* stacks_list = NULL;
 static size_t num_stacks = 0;
 
 //----[ Implementation of the common functions ]----------//
@@ -86,7 +86,7 @@ static void ipc_handle_create (ipc_shared_data* ipc)
 
   log$("Got IPC_CREATE (elem_size=%zu), creating a new stack", ipc->elem_size);
 
-  if (num_stacks > 0 && stacks == NULL) {
+  if (num_stacks > 0 && stacks_list == NULL) {
     log$(" . Number of stacks is nonzero, but array of them points to NULL. Panic!");
     ipc->res_error = PSTACK_INTERNAL_ERROR;
     return;
@@ -102,8 +102,8 @@ static void ipc_handle_create (ipc_shared_data* ipc)
 
   // Look for stack to reuse
   for (size_t i = 0; i < num_stacks; ++i)
-    if (stacks[i].handle == NULL)
-      stk = &stacks[i];
+    if (stacks_list[i].handle == NULL)
+      stk = &stacks_list[i];
 
   // Nothing found to reuse
   if (!stk) {
@@ -112,7 +112,7 @@ static void ipc_handle_create (ipc_shared_data* ipc)
     // Note what stacks_new may be NULL if out of memory,
     // but stacks will be preserved.
     // And if stacks = realloc(stacks, ...) we can leak the memory
-    stack_t* stacks_new = (stack_t*) realloc(stacks, sizeof(stack_t) * new_num_stacks);
+    stack_t* stacks_new = (stack_t*) realloc(stacks_list, sizeof(stack_t) * new_num_stacks);
     // We failed to allocate miserably
     // Now report that to the user
     if (!stacks_new) {
@@ -122,9 +122,9 @@ static void ipc_handle_create (ipc_shared_data* ipc)
       return;
     }
     // Memory is fine, zero it
-    stacks = stacks_new;
-    memset(stacks + num_stacks, 0, (new_num_stacks - num_stacks) * sizeof(stack_t));
-    stk = stacks + num_stacks;
+    stacks_list = stacks_new;
+    memset(stacks_list + num_stacks, 0, (new_num_stacks - num_stacks) * sizeof(stack_t));
+    stk = stacks_list + num_stacks;
     num_stacks = new_num_stacks;
   }
 
@@ -135,6 +135,7 @@ static void ipc_handle_create (ipc_shared_data* ipc)
   stk->handle = stk;
   stk->element_size = ipc->elem_size;
   stk->capacity = 0;
+  stk->data = NULL;
 
   log$(" . made a new stack at %p with handle %p", stk, stk->handle);
 
@@ -143,20 +144,22 @@ static void ipc_handle_create (ipc_shared_data* ipc)
 
 // Find the stack with specified handle
 // This sets the error if nothing was found
-static stack_t* find_stack(ipc_shared_data* ipc, pstack_t handle) {
+static stack_t* find_stack(ipc_shared_data* ipc, pstack_t handle)
+{
+  assert(ipc);
 
   log$(" . searching for stack...");
 
-  if (num_stacks && stacks == NULL) {
+  if (num_stacks && stacks_list == NULL) {
     log$(" . . list of all the stacks is broken");
     ipc->res_error = PSTACK_INTERNAL_ERROR;
     return NULL;
   }
 
   for (size_t i = 0; i < num_stacks; ++i) {
-    if (stacks[i].handle == handle) {
-      log$(" . stack found, it is %zu-th in list, address %p", i, &stacks[i]);
-      return &stacks[i];
+    if (stacks_list[i].handle == handle) {
+      log$(" . stack found, it is %zu-th in list, address %p", i, &stacks_list[i]);
+      return &stacks_list[i];
     }
   }
 
@@ -166,7 +169,10 @@ static stack_t* find_stack(ipc_shared_data* ipc, pstack_t handle) {
   return NULL;
 }
 
-static void ipc_handle_destroy (ipc_shared_data* ipc) {
+static void ipc_handle_destroy (ipc_shared_data* ipc)
+{
+  assert(ipc);
+
   log$("Got IPC_DESTROY (handle=%p), destroying the stack", ipc->handle);
 
   stack_t* stack = find_stack(ipc, ipc->handle);
@@ -176,10 +182,12 @@ static void ipc_handle_destroy (ipc_shared_data* ipc) {
   log$(" . destroying it");
   stack->handle = NULL;
   free(stack->data);
-
 }
 
-static void ipc_handle_push(ipc_shared_data* ipc) {
+static void ipc_handle_push(ipc_shared_data* ipc)
+{
+  assert(ipc);
+
   log$("Got IPC_PUSH (handle=%p, size=%zu), adding one element to the stack", ipc->handle, ipc->elem_size);
 
   stack_t* stack = find_stack(ipc, ipc->handle);
@@ -205,13 +213,15 @@ static void ipc_handle_push(ipc_shared_data* ipc) {
     stack->data = mem;
   }
 
-  log$(" . writting element into the stack");
+  log$(" . writting element onto the stack");
   memcpy(stack->data + stack->size * stack->element_size, ipc->buffer, stack->element_size);
   stack->size++;
 }
 
-static void ipc_handle_pop(ipc_shared_data* ipc) {
-  log$("Got IPC_POP (handle=%p), deleting top element", ipc->handle);
+static void ipc_handle_pop(ipc_shared_data* ipc)
+{
+  assert(ipc);
+  log$("Got IPC_POP (handle=%p), deleting the top element", ipc->handle);
 
   stack_t* stack = find_stack(ipc, ipc->handle);
   if (!stack) return;
@@ -237,16 +247,23 @@ static void ipc_handle_pop(ipc_shared_data* ipc) {
   }
 }
 
-static void ipc_handle_length  (ipc_shared_data* ipc) {
+static void ipc_handle_length  (ipc_shared_data* ipc)
+{
+  assert(ipc);
+
   log$("Got IPC_LENGTH (handle=%p), returning stack length", ipc->handle);
 
   stack_t* stack = find_stack(ipc, ipc->handle);
   if (!stack) return;
-
+  
+  log$(" . there are %zu elements on the stack", stack->size);
   ipc->elem_size = stack->size;
 }
 
-static void ipc_handle_get_top (ipc_shared_data* ipc) {
+static void ipc_handle_get_top (ipc_shared_data* ipc)
+{
+  assert(ipc);
+
   log$("Got IPC_TOP (handle=%p, expected size=%zu), extracting top element", ipc->handle, ipc->elem_size);
 
   stack_t* stack = find_stack(ipc, ipc->handle);

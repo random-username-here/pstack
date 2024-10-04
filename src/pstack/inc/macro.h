@@ -1,2 +1,0 @@
-/// 
-#define PSTACK_STATIC

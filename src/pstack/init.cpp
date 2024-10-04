@@ -21,7 +21,7 @@ ipc_shared_data* shared_process_data;
 
 //=====[ Subprocess management ]==========================//
 
-PSTACK_STATIC bool pstack_is_main_process (void) {
+bool pstack_is_main_process (void) {
   return handler_process != 0;
 }
 

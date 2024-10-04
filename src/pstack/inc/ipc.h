@@ -8,8 +8,6 @@
 #include <semaphore.h>
 #include <stdbool.h>
 #include "pstack.h"
-#include "./macro.h"
-
 
 typedef enum {
   PSTACK_IPC_UNSET_COMMAND, // No command currently set
@@ -56,23 +54,23 @@ typedef struct {
 
 
 /// Init the shared memory
-PSTACK_STATIC pstack_err_t ipc_init_shmem (ipc_shared_data** ipc);
+pstack_err_t ipc_init_shmem (ipc_shared_data** ipc);
 
 /// Store some value (element to be pushed) into the buffer
-PSTACK_STATIC pstack_err_t ipc_store_buffer (ipc_shared_data* ipc, void* data, size_t size);
+pstack_err_t ipc_store_buffer (ipc_shared_data* ipc, void* data, size_t size);
 
 
 /// Send the message to subprocess & wait for the response
-PSTACK_STATIC pstack_err_t ipc_request (ipc_shared_data* ipc);
+pstack_err_t ipc_request (ipc_shared_data* ipc);
 
 /// Send the response from subprocess
-PSTACK_STATIC pstack_err_t ipc_send_res (ipc_shared_data* ipc);
+pstack_err_t ipc_send_res (ipc_shared_data* ipc);
 
 /// Wait for the request
-PSTACK_STATIC pstack_err_t ipc_wait_for_req (ipc_shared_data* ipc);
+pstack_err_t ipc_wait_for_req (ipc_shared_data* ipc);
 
 /// Max buffer size to be thrown around between processes
-PSTACK_STATIC size_t ipc_max_object_size (ipc_shared_data* ipc);
+size_t ipc_max_object_size (ipc_shared_data* ipc);
 
 
 #endif

@@ -78,9 +78,6 @@ pstack_err_t pstack_get_last(pstack_t* stack, void* out, size_t elem_size)
   if (shared_process_data->res_error != PSTACK_OK)
     return shared_process_data->res_error;
 
-  if (shared_process_data->elem_size != elem_size)
-    return PSTACK_WRONG_ELEMENT_SIZE;
-
   memcpy(out, shared_process_data->buffer, elem_size);
 
   return PSTACK_OK;

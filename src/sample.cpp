@@ -57,8 +57,9 @@ int main (void) {
 
   checked$(pstack_size(&stk, &sz));
   printf("now stack size is %zu\n", sz);
-  
+
   checked$(pstack_destroy(&stk2));
   checked$(pstack_destroy(&stk));
-  
+
+  return 0;
 }

@@ -1,17 +1,18 @@
 #include "inc/ipc.h"
+#include "inc/logging.h"
 #include "pstack.h"
 #include <sys/mman.h>
 #include <unistd.h>
 #include <assert.h>
 #include <string.h>
 
-PSTACK_STATIC size_t ipc_max_object_size (ipc_shared_data* _)
+size_t ipc_max_object_size (ipc_shared_data* _)
 {
   return getpagesize() - sizeof(ipc_shared_data);
 }
 
 /// Init the shared memory
-PSTACK_STATIC pstack_err_t ipc_init_shmem (ipc_shared_data** ipc)
+pstack_err_t ipc_init_shmem (ipc_shared_data** ipc)
 {
 
   if (!ipc)
@@ -45,7 +46,7 @@ PSTACK_STATIC pstack_err_t ipc_init_shmem (ipc_shared_data** ipc)
 }
 
 /// Store some value (element to be pushed) into the buffer
-PSTACK_STATIC pstack_err_t ipc_store_buffer (ipc_shared_data* ipc, void* data, size_t size) 
+pstack_err_t ipc_store_buffer (ipc_shared_data* ipc, void* data, size_t size) 
 {
   if (!data)
     return PSTACK_NULL_POINTER;
@@ -70,8 +71,10 @@ PSTACK_STATIC pstack_err_t ipc_store_buffer (ipc_shared_data* ipc, void* data, s
       return PSTACK_OUT_OF_MEMORY;
     ipc->buffer_length += getpagesize();
   }*/
-  if (size > ipc_max_object_size(ipc))
+  if (size > ipc_max_object_size(ipc)) {
+    log$("ipc: Failed to store value of length %zu, max size is %zu", size, ipc_max_object_size(ipc));
     return PSTACK_TOO_BIG_ELEMENT;
+  }
 
   memcpy(ipc->buffer, data, size);
   ipc->elem_size = size;
@@ -80,14 +83,14 @@ PSTACK_STATIC pstack_err_t ipc_store_buffer (ipc_shared_data* ipc, void* data, s
 }
 
 /// Wait for other process to set the semaphore
-PSTACK_STATIC pstack_err_t ipc_wait_for_req (ipc_shared_data* ipc) {
+pstack_err_t ipc_wait_for_req (ipc_shared_data* ipc) {
   sem_wait(&ipc->inbound_semaphore);
 
   return PSTACK_OK;
 }
 
 /// Send the message & wait for request
-PSTACK_STATIC pstack_err_t ipc_request (ipc_shared_data* ipc) {
+pstack_err_t ipc_request (ipc_shared_data* ipc) {
   sem_post(&ipc->inbound_semaphore);
   sem_wait(&ipc->outbound_semaphore);
 
@@ -95,7 +98,7 @@ PSTACK_STATIC pstack_err_t ipc_request (ipc_shared_data* ipc) {
 }
 
 /// Send the message
-PSTACK_STATIC pstack_err_t ipc_send_res (ipc_shared_data* ipc) {
+pstack_err_t ipc_send_res (ipc_shared_data* ipc) {
   sem_post(&ipc->outbound_semaphore);
   
   return PSTACK_OK;
